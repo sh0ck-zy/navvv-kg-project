@@ -2,7 +2,7 @@ version: '3.8'
 services:
   neo4j:
     image: neo4j:5.7
-    container_name: semantic_scholar_neo4j
+    container_name: navvv_neo4j
     environment:
       - NEO4J_AUTH=neo4j/password123
     ports:
@@ -15,7 +15,7 @@ services:
 
   notebook:
     build: .
-    container_name: semantic_scholar_notebook
+    container_name: navvv_kg_notebook
     ports:
       - "8888:8888"
     depends_on:
