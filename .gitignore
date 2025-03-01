@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Notebooks checkpoints
+.ipynb_checkpoints
+
+# Data folders
+data/raw/
+data/processed/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+
+# Environment / Credentials
+.env
