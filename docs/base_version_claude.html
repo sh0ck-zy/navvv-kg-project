@@ -1,0 +1,410 @@
+< !DOCTYPE html >
+    <html>
+        <head>
+            <title>Visualização 3D de Grafo Cósmico</title>
+            <style>
+                body {
+                    margin: 0;
+                padding: 0;
+                overflow: hidden;
+                background-color: #000;
+                font-family: Arial, sans-serif;
+        }
+                #graph-container {
+                    width: 100%;
+                height: 100vh;
+        }
+                #info-panel {
+                    position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 15px;
+                border-radius: 5px;
+                max-width: 300px;
+                display: none;
+        }
+                #controls {
+                    position: absolute;
+                bottom: 10px;
+                left: 10px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 15px;
+                border-radius: 5px;
+                z-index: 10;
+        }
+                .control-group {
+                    margin - bottom: 10px;
+        }
+                label {
+                    display: block;
+                margin-bottom: 5px;
+        }
+                input[type="range"] {
+                    width: 100%;
+        }
+                .value-display {
+                    float: right;
+                font-size: 0.8em;
+        }
+            </style>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/three-spritetext@1.8.0/dist/three-spritetext.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.73.0/dist/3d-force-graph.min.js"></script>
+        </head>
+        <body>
+            <div id="graph-container"></div>
+            <div id="info-panel">
+                <h3 id="node-title">Node Info</h3>
+                <p id="node-description">Select a node to see details</p>
+            </div>
+            <div id="controls">
+                <h3>Cosmic Graph Controls</h3>
+                <div class="control-group">
+                    <label>Node Size <span id="node-size-value" class="value-display">1</span></label>
+                    <input type="range" id="node-size" min="0.1" max="3" step="0.1" value="1">
+                </div>
+                <div class="control-group">
+                    <label>Node Brightness <span id="node-brightness-value" class="value-display">1</span></label>
+                    <input type="range" id="node-brightness" min="0.1" max="3" step="0.1" value="1">
+                </div>
+                <div class="control-group">
+                    <label>Link Opacity <span id="link-opacity-value" class="value-display">0.3</span></label>
+                    <input type="range" id="link-opacity" min="0" max="1" step="0.05" value="0.3">
+                </div>
+                <div class="control-group">
+                    <label>Particle Speed <span id="particle-speed-value" class="value-display">0.01</span></label>
+                    <input type="range" id="particle-speed" min="0" max="0.05" step="0.001" value="0.01">
+                </div>
+                <div class="control-group">
+                    <label>Background Particles <span id="background-particles-value" class="value-display">1000</span></label>
+                    <input type="range" id="background-particles" min="0" max="3000" step="100" value="1000">
+                </div>
+            </div>
+
+            <script>
+        // Configurações globais
+                let particleSpeed = 0.01;
+                let nodeBrightness = 1;
+                let nodeSize = 1;
+                let linkOpacity = 0.3;
+                let backgroundParticlesCount = 1000;
+
+                // Gera dados aleatórios para o grafo
+                function generateRandomGraph(numNodes = 100, numLinks = 150) {
+            const nodes = [];
+                const links = [];
+
+                // Criar nós com propriedades astronômicas
+                const nodeTypes = ["Star", "Nebula", "BlackHole", "Planet", "Cluster"];
+                const nodeSizes = {
+                    "Star": {min: 0.7, max: 1.5 },
+                "Nebula": {min: 1.3, max: 2.5 },
+                "BlackHole": {min: 1.8, max: 3 },
+                "Planet": {min: 0.4, max: 0.9 },
+                "Cluster": {min: 1, max: 2 }
+            };
+
+                // Paleta de cores cósmicas
+                const colorPalettes = {
+                    "Star": ['#FFFF00', '#FFD700', '#FFA500', '#FF4500', '#00FFFF', '#87CEFA'],
+                "Nebula": ['#FF00FF', '#800080', '#4B0082', '#9400D3', '#8A2BE2'],
+                "BlackHole": ['#000000', '#191970', '#483D8B'],
+                "Planet": ['#1E90FF', '#00CED1', '#20B2AA', '#32CD32', '#A52A2A'],
+                "Cluster": ['#FF69B4', '#FF1493', '#FF00FF', '#BA55D3', '#9370DB']
+            };
+
+                for (let i = 0; i < numNodes; i++) {
+                const type = nodeTypes[Math.floor(Math.random() * nodeTypes.length)];
+                const colors = colorPalettes[type];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const sizeFactor = Math.random() * (nodeSizes[type].max - nodeSizes[type].min) + nodeSizes[type].min;
+
+                nodes.push({
+                    id: i,
+                name: `${type}-${i}`,
+                type: type,
+                description: `A cosmic ${type.toLowerCase()} with unique properties located in sector ${Math.floor(Math.random() * 1000)}.`,
+                val: sizeFactor,
+                color: color,
+                glow: Math.random() * 0.5 + 0.5, // Intensidade do brilho
+                pulseFactor: Math.random() * 0.2 + 0.9, // Para efeito de pulsação
+                pulseSpeed: Math.random() * 0.01 + 0.005 // Velocidade da pulsação
+                });
+            }
+
+                // Criar links aleatórios entre os nós
+                for (let i = 0; i < numLinks; i++) {
+                const source = Math.floor(Math.random() * numNodes);
+                let target;
+                do {
+                    target = Math.floor(Math.random() * numNodes);
+                } while (source === target);
+
+                links.push({
+                    source: source,
+                target: target,
+                strength: Math.random(),
+                // Propriedade para determinar a luminosidade da conexão
+                luminosity: Math.random() * 0.8 + 0.2
+                });
+            }
+
+                return {nodes, links};
+        }
+
+                // Gerar dados do grafo
+                const graphData = generateRandomGraph();
+
+                // Inicializar o grafo 3D
+                const Graph = ForceGraph3D()
+                (document.getElementById('graph-container'))
+                .graphData(graphData)
+                .backgroundColor('#000')
+                .nodeLabel('name')
+            .nodeColor(node => node.color)
+            .nodeVal(node => node.val * nodeSize)
+                .linkOpacity(linkOpacity)
+            .linkWidth(link => link.strength * 2)
+                .linkDirectionalParticles(3)
+            .linkDirectionalParticleWidth(link => link.strength * 3)
+            .linkDirectionalParticleSpeed(link => particleSpeed * link.strength * 2)
+                .onNodeClick(handleNodeClick)
+                .nodeThreeObject(createNodeObject);
+
+                // Criar um objeto three.js personalizado para cada nó
+                function createNodeObject(node) {
+            // Criar um material de textura para o nó
+            const nodeGeometry = new THREE.SphereGeometry(1, 32, 32);
+
+                // Criar shader material para efeitos visuais avançados
+                const nodeMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                    time: {value: 0 },
+                color: {value: new THREE.Color(node.color) },
+                glow: {value: node.glow * nodeBrightness },
+                pulseFactor: {value: node.pulseFactor },
+                pulseSpeed: {value: node.pulseSpeed }
+                },
+                vertexShader: `
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                uniform vec3 color;
+                uniform float time;
+                uniform float glow;
+                uniform float pulseFactor;
+                uniform float pulseSpeed;
+
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+
+                void main() {
+                    // Cálculo da intensidade do brilho com efeito de pulso
+                    float pulseIntensity = pulseFactor + sin(time * pulseSpeed * 10.0) * (1.0 - pulseFactor);
+
+                // Calcular brilho baseado na normal
+                float brightness = max(0.1, dot(vNormal, vec3(0.0, 0.0, 1.0)));
+                brightness = pow(brightness, 0.3) * pulseIntensity;
+
+                // Adicionar glow nas bordas
+                float edge = 1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0)));
+                edge = pow(edge, 2.0) * glow * 2.0;
+
+                // Cor final com brilho
+                vec3 glowColor = mix(color, vec3(1.0), edge);
+                vec3 finalColor = mix(color * brightness, glowColor, edge);
+
+                gl_FragColor = vec4(finalColor, 1.0);
+                    }
+                `,
+                transparent: true
+            });
+
+                // Adicionar um halo/aura ao redor do nó para nós específicos
+                const sphereMesh = new THREE.Mesh(nodeGeometry, nodeMaterial);
+
+                // Se o nó for uma estrela ou buraco negro, adicionar um glow externo
+                if (node.type === "Star" || node.type === "BlackHole" || node.type === "Nebula") {
+                const glowGeometry = new THREE.SphereGeometry(1.5, 32, 32);
+                const glowMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                    color: {value: new THREE.Color(node.color) },
+                time: {value: 0 },
+                pulseSpeed: {value: node.pulseSpeed }
+                    },
+                vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }
+                `,
+                fragmentShader: `
+                uniform vec3 color;
+                uniform float time;
+                uniform float pulseSpeed;
+                varying vec3 vNormal;
+
+                void main() {
+                    float pulse = 0.5 + 0.5 * sin(time * pulseSpeed * 5.0);
+                float edgeGlow = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 3.0);
+                float alpha = edgeGlow * 0.5 * pulse;
+                vec3 glowColor = mix(color, vec3(1.0, 1.0, 1.0), 0.5);
+                gl_FragColor = vec4(glowColor, alpha);
+                        }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide
+                });
+
+                const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
+                sphereMesh.add(glowMesh);
+            }
+
+                // Agrupar todos os componentes
+                const group = new THREE.Group();
+                group.add(sphereMesh);
+
+            // Atualizações para animação
+            const updateNodeAnimation = () => {
+                const time = Date.now() * 0.001;
+
+                if (nodeMaterial.uniforms && nodeMaterial.uniforms.time) {
+                    nodeMaterial.uniforms.time.value = time;
+                nodeMaterial.uniforms.glow.value = node.glow * nodeBrightness;
+                }
+
+                // Atualizar o material do glow, se existir
+                if (sphereMesh.children.length > 0 &&
+                sphereMesh.children[0].material &&
+                sphereMesh.children[0].material.uniforms) {
+                    sphereMesh.children[0].material.uniforms.time.value = time;
+                }
+
+                requestAnimationFrame(updateNodeAnimation);
+            };
+
+                updateNodeAnimation();
+
+                return group;
+        }
+
+                // Tratamento de evento de clique no nó
+                function handleNodeClick(node) {
+            // Atualizar o painel de informações
+            const infoPanel = document.getElementById('info-panel');
+                const nodeTitle = document.getElementById('node-title');
+                const nodeDescription = document.getElementById('node-description');
+
+                nodeTitle.textContent = node.name;
+                nodeDescription.textContent = node.description;
+                infoPanel.style.display = 'block';
+
+                // Focar a câmera no nó
+                Graph.cameraPosition(
+                {x: node.x, y: node.y, z: node.z + 40 }, // nova posição
+                node, // olhar para o nó
+                2000  // duração da animação em ms
+                );
+        }
+
+                // Adicionar partículas de fundo para criar efeito de espaço
+                function addBackgroundStars() {
+            const scene = Graph.scene();
+
+                // Remover partículas existentes se houver
+                const existingParticles = scene.getObjectByName('backgroundStars');
+                if (existingParticles) {
+                    scene.remove(existingParticles);
+            }
+
+                // Criar geometria para as partículas
+                const starGeometry = new THREE.BufferGeometry();
+                const starMaterial = new THREE.PointsMaterial({
+                    color: 0xFFFFFF,
+                size: 0.1,
+                transparent: true,
+                blending: THREE.AdditiveBlending
+            });
+
+                const starVertices = [];
+                const starColors = [];
+                const colorArray = new Float32Array(backgroundParticlesCount * 3);
+
+                // Gerar posições aleatórias para as estrelas em um volume maior que o grafo
+                const spread = 1000;
+                for (let i = 0; i < backgroundParticlesCount; i++) {
+                const x = Math.random() * spread - spread/2;
+                const y = Math.random() * spread - spread/2;
+                const z = Math.random() * spread - spread/2;
+
+                starVertices.push(x, y, z);
+
+                // Definir cores aleatórias com tendência para o branco
+                const r = 0.9 + Math.random() * 0.1;
+                const g = 0.9 + Math.random() * 0.1;
+                const b = 0.9 + Math.random() * 0.1;
+
+                colorArray[i*3] = r;
+                colorArray[i*3+1] = g;
+                colorArray[i*3+2] = b;
+            }
+
+                starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+                starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colorArray, 3));
+                starMaterial.vertexColors = true;
+
+                const stars = new THREE.Points(starGeometry, starMaterial);
+                stars.name = 'backgroundStars';
+                scene.add(stars);
+        }
+
+                // Adicionar estrelas de fundo
+                addBackgroundStars();
+
+                // Configurar controles de UI
+                document.getElementById('node-size').addEventListener('input', function(e) {
+                    nodeSize = parseFloat(e.target.value);
+                document.getElementById('node-size-value').textContent = nodeSize.toFixed(1);
+            // Atualizar o grafo
+            Graph.nodeVal(node => node.val * nodeSize);
+        });
+
+                document.getElementById('node-brightness').addEventListener('input', function(e) {
+                    nodeBrightness = parseFloat(e.target.value);
+                document.getElementById('node-brightness-value').textContent = nodeBrightness.toFixed(1);
+            // As alterações são tratadas no loop de animação dos nós
+        });
+
+                document.getElementById('link-opacity').addEventListener('input', function(e) {
+                    linkOpacity = parseFloat(e.target.value);
+                document.getElementById('link-opacity-value').textContent = linkOpacity.toFixed(2);
+                Graph.linkOpacity(linkOpacity);
+        });
+
+                document.getElementById('particle-speed').addEventListener('input', function(e) {
+                    particleSpeed = parseFloat(e.target.value);
+                document.getElementById('particle-speed-value').textContent = particleSpeed.toFixed(3);
+            Graph.linkDirectionalParticleSpeed(link => particleSpeed * link.strength * 2);
+        });
+
+                document.getElementById('background-particles').addEventListener('input', function(e) {
+                    backgroundParticlesCount = parseInt(e.target.value);
+                document.getElementById('background-particles-value').textContent = backgroundParticlesCount;
+                addBackgroundStars(); // Recria as partículas de fundo
+        });
+            </script>
+        </body>
+    </html>

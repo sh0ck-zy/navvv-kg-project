@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cosmic ML Knowledge Graph</title>
+    <!-- Link to external CSS -->
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body>
+    <!-- Loading indicator -->
+    <div id="loading-indicator">
+        <h2>Loading Knowledge Graph Data...</h2>
+        <p>This may take a moment for large datasets</p>
+    </div>
+
+    <!-- Graph container -->
+    <div id="graph-container"></div>
+
+    <!-- Controls panel -->
+    <div id="controls">
+        <h2>Cosmic Graph Controls</h2>
+        <div class="control-group">
+            <label for="node-size">Node Size:</label>
+            <input type="range" id="node-size" min="1" max="10" step="0.1" value="4" />
+        </div>
+        <div class="control-group">
+            <label for="node-brightness">Node Brightness:</label>
+            <input type="range" id="node-brightness" min="0.5" max="3" step="0.1" value="1.5" />
+        </div>
+        <div class="control-group">
+            <label for="link-opacity">Link Opacity:</label>
+            <input type="range" id="link-opacity" min="0.1" max="1" step="0.05" value="0.7" />
+        </div>
+        <div class="control-group">
+            <label for="particle-speed">Particle Speed:</label>
+            <input type="range" id="particle-speed" min="0.01" max="0.1" step="0.01" value="0.04" />
+        </div>
+        <div class="control-group">
+            <label for="particle-count">Particles per Link:</label>
+            <input type="range" id="particle-count" min="1" max="10" step="1" value="3" />
+        </div>
+        <div class="control-group">
+            <label for="year-min">Year Range:</label>
+            <div style="display: flex; justify-content: space-between;">
+                <span id="year-min-display">2000</span>
+                <span id="year-max-display">2023</span>
+            </div>
+            <input type="range" id="year-min" min="2000" max="2023" step="1" value="2000" />
+            <input type="range" id="year-max" min="2000" max="2023" step="1" value="2023" />
+        </div>
+        <div class="control-group">
+            <label for="citation-min">Citation Count:</label>
+            <div style="display: flex; justify-content: space-between;">
+                <span id="citation-min-display">0</span>
+                <span id="citation-max-display">10000+</span>
+            </div>
+            <input type="range" id="citation-min" min="0" max="20000" step="100" value="0" />
+            <input type="range" id="citation-max" min="0" max="20000" step="100" value="20000" />
+        </div>
+        <div class="control-group">
+            <label for="relationship-type">Relationship Type:</label>
+            <select id="relationship-type">
+                <option value="all">All Relationships</option>
+                <option value="citation">Citations</option>
+                <option value="authorship">Authorship</option>
+            </select>
+        </div>
+        <button id="reset-filters">Reset Filters</button>
+        <button id="reset-camera">Reset Camera</button>
+    </div>
+
+    <!-- Info panel -->
+    <div id="info-panel">
+        <h2 id="info-title">Paper Title</h2>
+        <div id="info-content">
+            <p><strong>Year:</strong> <span id="info-year"></span></p>
+            <p><strong>Citations:</strong> <span id="info-citations"></span></p>
+            <p><strong>References:</strong> <span id="info-references"></span></p>
+            <div class="abstract" id="info-abstract"></div>
+            <p><strong>Authors:</strong></p>
+            <div class="author-list" id="info-authors"></div>
+        </div>
+    </div>
+
+<!-- Load external libraries in the correct order -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Update this line to correctly import CSS2DRenderer -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script src="https://unpkg.com/3d-force-graph"></script>
+
+    <!-- Our own JavaScript files -->
+    <script src="js/graph.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

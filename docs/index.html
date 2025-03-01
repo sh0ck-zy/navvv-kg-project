@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic ML Knowledge Graph</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        #graph-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 250px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            padding: 15px;
+            z-index: 10;
+        }
+
+        #info-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 350px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            padding: 15px;
+            z-index: 10;
+            display: none;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        select {
+            width: 100%;
+            background: #111;
+            color: #fff;
+            border: 1px solid #333;
+            padding: 5px;
+        }
+
+        button {
+            background: #2a4c7d;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background: #3a6cbd;
+        }
+
+        #loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+
+        .author-list {
+            margin-top: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+
+        .abstract {
+            margin-top: 10px;
+            font-size: 0.9em;
+            max-height: 120px;
+            overflow-y: auto;
+            text-align: justify;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-indicator">
+        <h2>Loading Knowledge Graph Data...</h2>
+        <p>This may take a moment for large datasets</p>
+    </div>
+
+    <div id="graph-container"></div>
+
+    <div id="controls">
+        <h2>Cosmic Graph Controls</h2>
+
+        <div class="control-group">
+            <label for="node-size">Node Size:</label>
+            <input type="range" id="node-size" min="1" max="10" step="0.1" value="4">
+        </div>
+
+        <div class="control-group">
+            <label for="node-brightness">Node Brightness:</label>
+            <input type="range" id="node-brightness" min="0.5" max="3" step="0.1" value="1.5">
+        </div>
+
+        <div class="control-group">
+            <label for="link-opacity">Link Opacity:</label>
+            <input type="range" id="link-opacity" min="0.1" max="1" step="0.05" value="0.7">
+        </div>
+
+        <div class="control-group">
+            <label for="particle-speed">Particle Speed:</label>
+            <input type="range" id="particle-speed" min="0.01" max="0.1" step="0.01" value="0.04">
+        </div>
+
+        <div class="control-group">
+            <label for="particle-count">Particles per Link:</label>
+            <input type="range" id="particle-count" min="1" max="10" step="1" value="3">
+        </div>
+
+        <div class="control-group">
+            <label for="year-min">Year Range:</label>
+            <div style="display: flex; justify-content: space-between;">
+                <span id="year-min-display">2000</span>
+                <span id="year-max-display">2023</span>
+            </div>
+            <input type="range" id="year-min" min="2000" max="2023" step="1" value="2000">
+            <input type="range" id="year-max" min="2000" max="2023" step="1" value="2023">
+        </div>
+
+        <div class="control-group">
+            <label for="citation-min">Citation Count:</label>
+            <div style="display: flex; justify-content: space-between;">
+                <span id="citation-min-display">0</span>
+                <span id="citation-max-display">10000+</span>
+            </div>
+            <input type="range" id="citation-min" min="0" max="20000" step="100" value="0">
+            <input type="range" id="citation-max" min="0" max="20000" step="100" value="20000">
+        </div>
+
+        <div class="control-group">
+            <label for="relationship-type">Relationship Type:</label>
+            <select id="relationship-type">
+                <option value="all">All Relationships</option>
+                <option value="citation">Citations</option>
+                <option value="authorship">Authorship</option>
+            </select>
+        </div>
+
+        <button id="reset-filters">Reset Filters</button>
+        <button id="reset-camera">Reset Camera</button>
+    </div>
+
+    <div id="info-panel">
+        <h2 id="info-title">Paper Title</h2>
+        <div id="info-content">
+            <p><strong>Year:</strong> <span id="info-year"></span></p>
+            <p><strong>Citations:</strong> <span id="info-citations"></span></p>
+            <p><strong>References:</strong> <span id="info-references"></span></p>
+            <div class="abstract" id="info-abstract"></div>
+            <p><strong>Authors:</strong></p>
+            <div class="author-list" id="info-authors"></div>
+        </div>
+    </div>
+
+    <!-- Load scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Include CSS2DRenderer from Three.js examples -->
+    <script src="https://unpkg.com/three/examples/js/renderers/CSS2DRenderer.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/3d-force-graph/1.70.5/3d-force-graph.min.js"></script>
+
+    <script>
+        // Initial data and graph state
+        let graphData = { nodes: [], links: [] };
+        let filteredData = { nodes: [], links: [] };
+        let Graph;
+        let yearRange = { min: 2000, max: 2023 };
+        let citationRange = { min: 0, max: 20000 };
+        let maxCitationCount = 0;
+        let minYear = 3000, maxYear = 0;
+
+        // Custom Shaders for cosmic effects
+        const vertexShader = `
+      varying vec2 vUv;
+      void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+        // Fragment shader for papers
+        const paperFragmentShader = `
+      uniform float u_time;
+      uniform float u_brightness;
+      uniform vec3 u_color;
+      varying vec2 vUv;
+      
+      void main() {
+          vec2 center = vec2(0.5, 0.5);
+          float dist = distance(vUv, center);
+          float pulse = sin(u_time * 2.0) * 0.1 + 0.9;
+          float glow = smoothstep(0.5, 0.0, dist) * u_brightness * pulse;
+          vec3 color = u_color * glow;
+          if (dist < 0.1) {
+              color = mix(color, vec3(1.0), smoothstep(0.1, 0.0, dist) * pulse);
+          }
+          gl_FragColor = vec4(color, glow);
+      }
+    `;
+
+        // Fragment shader for authors
+        const authorFragmentShader = `
+      uniform float u_time;
+      uniform float u_brightness;
+      uniform vec3 u_color;
+      varying vec2 vUv;
+      
+      void main() {
+          vec2 center = vec2(0.5, 0.5);
+          float dist = distance(vUv, center);
+          float pulse = sin(u_time * 1.0) * 0.05 + 0.95;
+          float glow = smoothstep(0.5, 0.0, dist) * u_brightness * pulse;
+          float noise1 = fract(sin(dot(vUv + u_time * 0.01, vec2(12.9898, 78.233))) * 43758.5453);
+          float noise2 = fract(sin(dot(vUv + u_time * 0.02, vec2(39.9898, 27.233))) * 94724.3497);
+          float nebula = mix(noise1, noise2, 0.5) * 0.3 + 0.7;
+          vec3 color = u_color * glow * nebula;
+          gl_FragColor = vec4(color, glow * 0.8);
+      }
+    `;
+
+        // Function to create cosmic node
+        function createCosmicNode(node) {
+            const isPaper = node.type === "paper";
+            let size, color;
+
+            if (isPaper) {
+                const citationFactor = Math.log(node.citationCount + 1) / Math.log(maxCitationCount + 1);
+                size = 3 + citationFactor * 7;
+                const yearNormalized = (node.year - minYear) / (maxYear - minYear || 1);
+                color = new THREE.Color().setHSL(0.6 - yearNormalized * 0.6, 1.0, 0.5);
+            } else {
+                size = 5;
+                color = new THREE.Color(0.8, 0.4, 1.0);
+            }
+
+            const geometry = new THREE.PlaneGeometry(size, size);
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    u_time: { value: 0 },
+                    u_brightness: { value: parseFloat(document.getElementById('node-brightness').value) },
+                    u_color: { value: color }
+                },
+                vertexShader: vertexShader,
+                fragmentShader: isPaper ? paperFragmentShader : authorFragmentShader,
+                transparent: true,
+                depthWrite: false
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.onBeforeRender = (renderer, scene, camera) => {
+                mesh.lookAt(camera.position);
+                mesh.material.uniforms.u_time.value += 0.01;
+            };
+
+            return mesh;
+        }
+
+        // Process the raw JSON data into graph format
+        function processData(papers) {
+            const nodes = [];
+            const links = [];
+            const authorsMap = new Map();
+
+            maxCitationCount = 0;
+            minYear = 3000;
+            maxYear = 0;
+
+            papers.forEach(paper => {
+                if (paper.citationCount > maxCitationCount) {
+                    maxCitationCount = paper.citationCount;
+                }
+                if (paper.year < minYear) {
+                    minYear = paper.year;
+                }
+                if (paper.year > maxYear) {
+                    maxYear = paper.year;
+                }
+                nodes.push({
+                    id: paper.paperId,
+                    title: paper.title,
+                    year: paper.year,
+                    abstract: paper.abstract,
+                    citationCount: paper.citationCount,
+                    referenceCount: paper.referenceCount,
+                    type: "paper"
+                });
+                paper.authors.forEach(author => {
+                    if (!authorsMap.has(author.authorId)) {
+                        authorsMap.set(author.authorId, {
+                            id: author.authorId,
+                            name: author.name,
+                            type: "author",
+                            paperCount: 0
+                        });
+                    }
+                    const authorData = authorsMap.get(author.authorId);
+                    authorData.paperCount++;
+                    links.push({
+                        source: author.authorId,
+                        target: paper.paperId,
+                        relation: "AUTHORED",
+                        type: "authorship"
+                    });
+                });
+            });
+
+            authorsMap.forEach(author => {
+                nodes.push(author);
+            });
+            updateControlRanges();
+            return { nodes, links };
+        }
+
+        // Update min/max ranges in the UI
+        function updateControlRanges() {
+            const yearMinSlider = document.getElementById('year-min');
+            const yearMaxSlider = document.getElementById('year-max');
+            const yearMinDisplay = document.getElementById('year-min-display');
+            const yearMaxDisplay = document.getElementById('year-max-display');
+
+            yearMinSlider.min = minYear;
+            yearMinSlider.max = maxYear;
+            yearMinSlider.value = minYear;
+
+            yearMaxSlider.min = minYear;
+            yearMaxSlider.max = maxYear;
+            yearMaxSlider.value = maxYear;
+
+            yearMinDisplay.textContent = minYear;
+            yearMaxDisplay.textContent = maxYear;
+
+            const citMinSlider = document.getElementById('citation-min');
+            const citMaxSlider = document.getElementById('citation-max');
+            const citMinDisplay = document.getElementById('citation-min-display');
+            const citMaxDisplay = document.getElementById('citation-max-display');
+
+            citMinSlider.max = maxCitationCount;
+            citMaxSlider.max = maxCitationCount;
+            citMaxSlider.value = maxCitationCount;
+
+            citMinDisplay.textContent = "0";
+            citMaxDisplay.textContent = maxCitationCount.toLocaleString() + "+";
+        }
+
+        // Filter functions
+        function applyFilters() {
+            const minYear = parseInt(document.getElementById('year-min').value);
+            const maxYear = parseInt(document.getElementById('year-max').value);
+            const minCitations = parseInt(document.getElementById('citation-min').value);
+            const maxCitations = parseInt(document.getElementById('citation-max').value);
+            const relationshipType = document.getElementById('relationship-type').value;
+
+            const filteredPaperNodes = graphData.nodes.filter(node => {
+                if (node.type !== 'paper') return false;
+                if (node.year < minYear || node.year > maxYear) return false;
+                if (node.citationCount < minCitations || node.citationCount > maxCitations) return false;
+                return true;
+            });
+
+            const filteredPaperIds = new Set(filteredPaperNodes.map(node => node.id));
+            const filteredLinks = graphData.links.filter(link => {
+                const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                if (!filteredPaperIds.has(targetId) && !filteredPaperIds.has(sourceId)) {
+                    return false;
+                }
+                if (relationshipType !== 'all') {
+                    return link.type === relationshipType;
+                }
+                return true;
+            });
+
+            const relevantAuthorIds = new Set();
+            filteredLinks.forEach(link => {
+                const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                if (link.relation === 'AUTHORED') {
+                    relevantAuthorIds.add(sourceId);
+                }
+            });
+
+            const filteredAuthorNodes = graphData.nodes.filter(node =>
+                node.type === 'author' && relevantAuthorIds.has(node.id)
+            );
+
+            const filteredNodes = [...filteredPaperNodes, ...filteredAuthorNodes];
+            const filteredNodeIds = new Set(filteredNodes.map(node => node.id));
+            const finalLinks = filteredLinks.filter(link => {
+                const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                return filteredNodeIds.has(sourceId) && filteredNodeIds.has(targetId);
+            });
+
+            filteredData = {
+                nodes: filteredNodes,
+                links: finalLinks
+            };
+
+            Graph.graphData(filteredData);
+        }
+
+        // Show node information
+        function showNodeInfo(node) {
+            const infoPanel = document.getElementById('info-panel');
+            const infoTitle = document.getElementById('info-title');
+
+            if (node.type === 'paper') {
+                infoTitle.textContent = node.title;
+                document.getElementById('info-content').innerHTML = `
+          <p><strong>Year:</strong> <span id="info-year">${node.year}</span></p>
+          <p><strong>Citations:</strong> <span id="info-citations">${node.citationCount.toLocaleString()}</span></p>
+          <p><strong>References:</strong> <span id="info-references">${node.referenceCount}</span></p>
+          <p><strong>Abstract:</strong></p>
+          <div class="abstract" id="info-abstract">${node.abstract || 'No abstract available'}</div>
+          <p><strong>Authors:</strong></p>
+          <div class="author-list" id="info-authors">Loading authors...</div>
+        `;
+
+                const authorList = document.getElementById('info-authors');
+                const authorLinks = graphData.links.filter(link => {
+                    const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                    return targetId === node.id && link.relation === 'AUTHORED';
+                });
+
+                if (authorLinks.length > 0) {
+                    const authorHtml = authorLinks.map(link => {
+                        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                        const author = graphData.nodes.find(n => n.id === sourceId);
+                        return author ? `<div>${author.name}</div>` : '';
+                    }).join('');
+                    authorList.innerHTML = authorHtml || 'No authors found';
+                } else {
+                    authorList.innerHTML = 'No authors found';
+                }
+
+                infoPanel.style.display = 'block';
+            } else if (node.type === 'author') {
+                infoTitle.textContent = node.name;
+                const authoredPapers = graphData.links.filter(link => {
+                    const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                    return sourceId === node.id && link.relation === 'AUTHORED';
+                });
+                const papersList = authoredPapers.map(link => {
+                    const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                    const paper = graphData.nodes.find(n => n.id === targetId);
+                    return paper ? `<div><strong>${paper.title}</strong> (${paper.year}, ${paper.citationCount} citations)</div>` : '';
+                }).join('');
+                document.getElementById('info-content').innerHTML = `
+          <p><strong>Author:</strong> ${node.name}</p>
+          <p><strong>Papers:</strong> ${node.paperCount}</p>
+          <div class="author-list">
+            ${papersList || 'No papers found'}
+          </div>
+        `;
+                infoPanel.style.display = 'block';
+            }
+        }
+
+        // Hide info panel when clicking on empty space
+        function hideInfoPanel() {
+            document.getElementById('info-panel').style.display = 'none';
+        }
+
+        // Initialize and load the graph
+        async function initGraph() {
+            try {
+                // Change the file path below if your JSON file is located elsewhere
+                const response = await fetch('../data/raw/papers_ml.json');
+                console.log("Dados do grafo:", graphData);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const papers = await response.json();
+                graphData = processData(papers);
+                document.getElementById('loading-indicator').style.display = 'none';
+                Graph = ForceGraph3D({
+                    extraRenderers: [new THREE.CSS2DRenderer()]
+                })(document.getElementById('graph-container'))
+                    .graphData(graphData)
+                    .nodeThreeObject(node => createCosmicNode(node))
+                    .nodeLabel(node => node.type === 'paper' ? node.title : node.name)
+                    .linkDirectionalParticles(parseInt(document.getElementById('particle-count').value))
+                    .linkDirectionalParticleSpeed(parseFloat(document.getElementById('particle-speed').value))
+                    .linkOpacity(parseFloat(document.getElementById('link-opacity').value))
+                    .linkWidth(1)
+                    .linkColor(link => link.type === 'authorship' ? new THREE.Color(0x88aaff) : new THREE.Color(0xff8844))
+                    .onNodeClick(showNodeInfo)
+                    .onBackgroundClick(hideInfoPanel)
+                    .nodeRelSize(parseFloat(document.getElementById('node-size').value));
+
+                applyFilters();
+                const scene = Graph.scene();
+                const starsGeometry = new THREE.BufferGeometry();
+                const starPositions = [];
+                const starColors = [];
+                for (let i = 0; i < 2000; i++) {
+                    const x = (Math.random() - 0.5) * 2000;
+                    const y = (Math.random() - 0.5) * 2000;
+                    const z = (Math.random() - 0.5) * 2000;
+                    starPositions.push(x, y, z);
+                    const r = Math.random() * 0.5 + 0.5;
+                    const g = Math.random() * 0.5 + 0.5;
+                    const b = Math.random() * 0.2 + 0.8;
+                    starColors.push(r, g, b);
+                }
+                starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+                starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+                const starsMaterial = new THREE.PointsMaterial({
+                    size: 1.5,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const starField = new THREE.Points(starsGeometry, starsMaterial);
+                scene.add(starField);
+
+                function animateBackground() {
+                    requestAnimationFrame(animateBackground);
+                    const starField = Graph.scene().children.find(obj => obj instanceof THREE.Points);
+                    if (starField) {
+                        starField.rotation.y += 0.0001;
+                        starField.rotation.x += 0.00005;
+                    }
+                    Graph.scene().traverse(obj => {
+                        if (obj.isMesh && obj.material.uniforms && obj.material.uniforms.u_time) {
+                            obj.material.uniforms.u_time.value += 0.01;
+                        }
+                    });
+                }
+                animateBackground();
+
+                console.log("Initializing graph...");
+                console.log("Fetch response:", response);
+                console.log("Papers data loaded:", papers.length, "papers found");
+
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById('loading-indicator').innerHTML = `
+          <h2>Error Loading Data</h2>
+          <p>${error.message}</p>
+          <p>Make sure the file exists at the specified path</p>
+        `;
+            }
+        }
+
+        // Register event listeners for controls
+        function setupEventListeners() {
+            document.getElementById('node-size').addEventListener('input', e => {
+                Graph.nodeRelSize(parseFloat(e.target.value));
+            });
+            document.getElementById('node-brightness').addEventListener('input', e => {
+                const brightness = parseFloat(e.target.value);
+                Graph.scene().traverse(obj => {
+                    if (obj.isMesh && obj.material.uniforms && obj.material.uniforms.u_brightness) {
+                        obj.material.uniforms.u_brightness.value = brightness;
+                    }
+                });
+            });
+            document.getElementById('link-opacity').addEventListener('input', e => {
+                Graph.linkOpacity(parseFloat(e.target.value));
+            });
+            document.getElementById('particle-speed').addEventListener('input', e => {
+                Graph.linkDirectionalParticleSpeed(parseFloat(e.target.value));
+            });
+            document.getElementById('particle-count').addEventListener('input', e => {
+                Graph.linkDirectionalParticles(parseInt(e.target.value));
+            });
+            document.getElementById('relationship-type').addEventListener('change', applyFilters);
+
+            const yearMinSlider = document.getElementById('year-min');
+            const yearMaxSlider = document.getElementById('year-max');
+            const yearMinDisplay = document.getElementById('year-min-display');
+            const yearMaxDisplay = document.getElementById('year-max-display');
+
+            yearMinSlider.addEventListener('input', e => {
+                const val = parseInt(e.target.value);
+                yearMinDisplay.textContent = val;
+                if (val > parseInt(yearMaxSlider.value)) {
+                    yearMaxSlider.value = val;
+                    yearMaxDisplay.textContent = val;
+                }
+                applyFilters();
+            });
+
+            yearMaxSlider.addEventListener('input', e => {
+                const val = parseInt(e.target.value);
+                yearMaxDisplay.textContent = val;
+                if (val < parseInt(yearMinSlider.value)) {
+                    yearMinSlider.value = val;
+                    yearMinDisplay.textContent = val;
+                }
+                applyFilters();
+            });
+
+            const citMinSlider = document.getElementById('citation-min');
+            const citMaxSlider = document.getElementById('citation-max');
+            const citMinDisplay = document.getElementById('citation-min-display');
+            const citMaxDisplay = document.getElementById('citation-max-display');
+
+            citMinSlider.addEventListener('input', e => {
+                const val = parseInt(e.target.value);
+                citMinDisplay.textContent = val.toLocaleString();
+                if (val > parseInt(citMaxSlider.value)) {
+                    citMaxSlider.value = val;
+                    citMaxDisplay.textContent = val.toLocaleString() + (val === maxCitationCount ? "+" : "");
+                }
+                applyFilters();
+            });
+
+            citMaxSlider.addEventListener('input', e => {
+                const val = parseInt(e.target.value);
+                citMaxDisplay.textContent = val.toLocaleString() + (val === maxCitationCount ? "+" : "");
+                if (val < parseInt(citMinSlider.value)) {
+                    citMinSlider.value = val;
+                    citMinDisplay.textContent = val.toLocaleString();
+                }
+                applyFilters();
+            });
+
+            document.getElementById('reset-filters').addEventListener('click', () => {
+                document.getElementById('relationship-type').value = 'all';
+                yearMinSlider.value = minYear;
+                yearMaxSlider.value = maxYear;
+                yearMinDisplay.textContent = minYear;
+                yearMaxDisplay.textContent = maxYear;
+                citMinSlider.value = 0;
+                citMaxSlider.value = maxCitationCount;
+                citMinDisplay.textContent = "0";
+                citMaxDisplay.textContent = maxCitationCount.toLocaleString() + "+";
+                applyFilters();
+            });
+
+            document.getElementById('reset-camera').addEventListener('click', () => {
+                Graph.cameraPosition({ x: 0, y: 0, z: 200 }, { x: 0, y: 0, z: 0 }, 1000);
+            });
+
+            window.addEventListener('resize', () => {
+                Graph.width(window.innerWidth);
+                Graph.height(window.innerHeight);
+            });
+
+            const searchBox = document.createElement('div');
+            searchBox.innerHTML = `
+        <div style="position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0, 0, 0, 0.7); border-radius: 5px; padding: 10px;">
+          <input type="text" id="search-input" placeholder="Search papers or authors..." 
+                 style="width: 250px; background: #111; color: #fff; border: 1px solid #333; padding: 5px; border-radius: 3px;">
+          <button id="search-button" style="background: #2a4c7d; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 5px;">
+              Search
+          </button>
+          <div id="search-results" style="max-height: 200px; overflow-y: auto; display: none; margin-top: 10px;"></div>
+        </div>
+      `;
+            document.body.appendChild(searchBox);
+            document.getElementById('search-button').addEventListener('click', performSearch);
+            document.getElementById('search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch();
+            });
+
+            function performSearch() {
+                const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                const resultsDiv = document.getElementById('search-results');
+                if (searchTerm.length < 2) {
+                    resultsDiv.innerHTML = '<p style="color: #ff8888;">Please enter at least 2 characters</p>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+                const matchingNodes = graphData.nodes.filter(node => {
+                    if (node.type === 'paper') {
+                        return node.title.toLowerCase().includes(searchTerm);
+                    } else {
+                        return node.name.toLowerCase().includes(searchTerm);
+                    }
+                }).slice(0, 10);
+                if (matchingNodes.length === 0) {
+                    resultsDiv.innerHTML = '<p style="color: #ff8888;">No results found</p>';
+                } else {
+                    resultsDiv.innerHTML = matchingNodes.map(node => {
+                        const label = node.type === 'paper' ? node.title : node.name;
+                        return `<div style="padding: 5px; border-bottom: 1px solid #333; cursor: pointer;" 
+              data-id="${node.id}" class="search-result-item">
+              ${label} (${node.type})
+            </div>`;
+                    }).join('');
+                    document.querySelectorAll('.search-result-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            const nodeId = item.getAttribute('data-id');
+                            const node = graphData.nodes.find(n => n.id === nodeId);
+                            if (node) {
+                                Graph.centerAt(node.x, node.y, node.z, 1000);
+                                Graph.zoomToFit(400, 500, node => node.id === nodeId);
+                                showNodeInfo(node);
+                                resultsDiv.style.display = 'none';
+                            }
+                        });
+                    });
+                }
+                resultsDiv.style.display = 'block';
+            }
+
+            const exportButton = document.createElement('button');
+            exportButton.textContent = 'Export Visible Graph';
+            exportButton.style = 'position: absolute; bottom: 10px; right: 10px; background: #2a4c7d; color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; z-index: 10;';
+            document.body.appendChild(exportButton);
+
+            exportButton.addEventListener('click', () => {
+                const visibleData = {
+                    nodes: filteredData.nodes.map(node => ({
+                        id: node.id,
+                        type: node.type,
+                        title: node.type === 'paper' ? node.title : node.name,
+                        year: node.year,
+                        citationCount: node.citationCount,
+                        paperCount: node.paperCount
+                    })),
+                    links: filteredData.links.map(link => ({
+                        source: typeof link.source === 'object' ? link.source.id : link.source,
+                        target: typeof link.target === 'object' ? link.target.id : link.target,
+                        relation: link.relation,
+                        type: link.type
+                    }))
+                };
+                const blob = new Blob([JSON.stringify(visibleData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'cosmic_ml_graph_export.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            const legend = document.createElement('div');
+            legend.innerHTML = `
+        <div style="position: absolute; bottom: 10px; left: 370px; background: rgba(0, 0, 0, 0.7); border-radius: 5px; padding: 10px; z-index: 10;">
+          <h3 style="margin-top: 0; margin-bottom: 10px;">Legend</h3>
+          <div style="display: flex; align-items: center; margin-bottom: 5px;">
+            <div style="width: 15px; height: 15px; background: linear-gradient(to right, #4444ff, #aaaaff); border-radius: 50%; margin-right: 10px;"></div>
+            <span>Paper Node (Blue = Older)</span>
+          </div>
+          <div style="display: flex; align-items: center; margin-bottom: 5px;">
+            <div style="width: 15px; height: 15px; background: linear-gradient(to right, #dddd44, #ffff88); border-radius: 50%; margin-right: 10px;"></div>
+            <span>Paper Node (Yellow = Newer)</span>
+          </div>
+          <div style="display: flex; align-items: center; margin-bottom: 5px;">
+            <div style="width: 15px; height: 15px; background: #cc66ff; border-radius: 50%; margin-right: 10px;"></div>
+            <span>Author Node</span>
+          </div>
+          <div style="display: flex; align-items: center; margin-bottom: 5px;">
+            <div style="width: 30px; height: 2px; background: #88aaff; margin-right: 10px;"></div>
+            <span>Authorship Link</span>
+          </div>
+          <div style="display: flex; align-items: center;">
+            <div style="width: 30px; height: 2px; background: #ff8844; margin-right: 10px;"></div>
+            <span>Citation Link</span>
+          </div>
+        </div>
+      `;
+            document.body.appendChild(legend);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("Page loaded! Initializing graph...");
+            initGraph().catch(error => {
+                console.error("Error initializing graph:", error);
+                document.getElementById('loading-indicator').innerHTML = `
+          <h2>Error Loading Data</h2>
+          <p>${error.message}</p>
+          <p>Check console for details</p>
+        `;
+            });
+            setupEventListeners();
+        });
+    </script>
+</body>
+
+</html>
