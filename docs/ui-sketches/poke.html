@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Pokémon-like Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        #game-container {
+            position: relative;
+        }
+
+        canvas {
+            border: 4px solid #000;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-color: #8ab060;
+        }
+
+        #encounter-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #encounter-text {
+            color: white;
+            font-size: 16px;
+            text-align: center;
+            padding: 10px;
+            background-color: #444;
+            border: 2px solid #fff;
+            margin-bottom: 10px;
+        }
+
+        #continue-btn {
+            padding: 5px 10px;
+            background-color: #4a4;
+            color: white;
+            border: 2px solid #fff;
+            cursor: pointer;
+        }
+
+        #continue-btn:hover {
+            background-color: #6c6;
+        }
+
+        #controls {
+            margin-top: 10px;
+            text-align: center;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="240" height="240"></canvas>
+        <div id="encounter-overlay">
+            <div id="encounter-text">A wild Pokémon appeared!</div>
+            <button id="continue-btn">Continue</button>
+        </div>
+        <div id="controls">
+            Use arrow keys to move. Walk in grass for random encounters.
+        </div>
+    </div>
+
+    <script>
+        // Game setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const encounterOverlay = document.getElementById('encounter-overlay');
+        const encounterText = document.getElementById('encounter-text');
+        const continueBtn = document.getElementById('continue-btn');
+
+        // Game constants
+        const TILE_SIZE = 16;
+        const MAP_WIDTH = 15;
+        const MAP_HEIGHT = 15;
+        const PLAYER_SPEED = 2; // pixels per frame
+
+        // Game state
+        let inEncounter = false;
+        let playerX = 120;
+        let playerY = 120;
+        let playerDirection = 'down';
+        let playerFrame = 0;
+        let frameCount = 0;
+        let keysPressed = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+
+        // Map layout (0 = path, 1 = grass)
+        const map = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+            [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
+            [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
+            [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ];
+
+        // Create sprite images
+        const grassImg = new Image();
+        grassImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJ1SURBVHgBhVJNaBNREJ55u9lNN01TiVXbrdKD9SI5iHrwoCKIB7EgQhFEFPRaPAiePOjFi4ecKngVwbNFkB7Eg+JRRYUWSVsQfxJ/2jRN0+xu9vfNps2maMHJvpk3b76Z75tZxIMRZ9XNAuRn9h2pDp27AXW9iu+/d1PJMOcn3vReSzLXb91JZ4BdTiE5kIVEbzpR+3hVGsUhVD9Mvv9NYHV15WBclncE5xjlTUZvWwfdD7DvfaCVNj4qTWOr0VqXJUUtibRXBPCigGyQSdF9MIdgAiSYBCGoXYB8SnD7aM0YW1oIl1hfX+8uPX/qGS0+mJ6eRYE+EfMg7wP7wQQkCCEgzP6RrxHdHO4sDCr1Z+GCDw4c7sXy4lIqEwDn1kUhTG4TuFsYdrdG4Jkx8WLtbO59qgVRfOGDCVdO7tOtD56N+K5g/2Ngs7/Jg13/qdw4M5Cblmny9TKmv76sUcvmxcLDV1Ou0XDRMwRp4jYBsTmIZ1OVhVh65cqIpE51nvSsz/eo5b7CUFj4xUNnBa5EHQtINpfLFGZdEiQQn5QKhEpYkAcOFOdHiwsW/JjpTLcmqCwVb+s1I8/rC3x+PsnS0UeeFkCOH8u1gZEg/J+QBMnx0fwwCuE5qOi3EJnLNXTq8JT3KzWN6rCxuKI7ddcZE0wmUC6XZ6hUKqHSH2amaU52qUJTGpXR0atl+ONGN9d+PtGr+uFG3ZlzPS9pWVac5dB2XeVy+Zbv+7FCoTA0M/PhniQrWa2m3Vct+/TnilUm0+P5XhupbZtHcjvkUyQ2HjjONgXhZ4TQYcuy+lwvPPEP5XcvORzS6qIAAAAASUVORK5CYII=';
+
+        const playerImg = new Image();
+        playerImg.src = 'data:image/png;base64,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';
+
+        // Wait for images to load
+        let imagesLoaded = 0;
+        const totalImages = 2;
+
+        function imageLoaded() {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                // Start the game once all images are loaded
+                gameLoop();
+            }
+        }
+
+        grassImg.onload = imageLoaded;
+        playerImg.onload = imageLoaded;
+
+        // Draw grass tile
+        function drawGrass(x, y) {
+            ctx.drawImage(grassImg, x, y, TILE_SIZE, TILE_SIZE);
+        }
+
+        // Draw player
+        function drawPlayer() {
+            const spriteX = Math.floor(playerFrame) * 16;
+            const spriteY = getDirectionSpriteY() * 16;
+            ctx.drawImage(playerImg, spriteX, spriteY, 16, 16, playerX, playerY, 16, 16);
+        }
+
+        function getDirectionSpriteY() {
+            switch (playerDirection) {
+                case 'down': return 0;
+                case 'left': return 1;
+                case 'right': return 2;
+                case 'up': return 3;
+                default: return 0;
+            }
+        }
+
+        // Handle keyboard input
+        window.addEventListener('keydown', (e) => {
+            if (inEncounter) return;
+            if (e.key in keysPressed) {
+                keysPressed[e.key] = true;
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key in keysPressed) {
+                keysPressed[e.key] = false;
+                e.preventDefault();
+            }
+        });
+
+        // Move player
+        function movePlayer() {
+            let newX = playerX;
+            let newY = playerY;
+            let moved = false;
+
+            if (keysPressed.ArrowUp) {
+                playerDirection = 'up';
+                newY -= PLAYER_SPEED;
+                moved = true;
+            } else if (keysPressed.ArrowDown) {
+                playerDirection = 'down';
+                newY += PLAYER_SPEED;
+                moved = true;
+            } else if (keysPressed.ArrowLeft) {
+                playerDirection = 'left';
+                newX -= PLAYER_SPEED;
+                moved = true;
+            } else if (keysPressed.ArrowRight) {
+                playerDirection = 'right';
+                newX += PLAYER_SPEED;
+                moved = true;
+            }
+
+            // Check boundaries
+            if (newX < 0) newX = 0;
+            if (newX > canvas.width - 16) newX = canvas.width - 16;
+            if (newY < 0) newY = 0;
+            if (newY > canvas.height - 16) newY = canvas.height - 16;
+
+            // Update position
+            playerX = newX;
+            playerY = newY;
+
+            // Update animation frame
+            if (moved) {
+                playerFrame = (playerFrame + 0.1) % 2;
+
+                // Check if walking in grass
+                const tileX = Math.floor((playerX + 8) / TILE_SIZE);
+                const tileY = Math.floor((playerY + 8) / TILE_SIZE);
+
+                if (tileX >= 0 && tileX < MAP_WIDTH && tileY >= 0 && tileY < MAP_HEIGHT) {
+                    if (map[tileY][tileX] === 1) {
+                        // Random encounter in grass
+                        if (Math.random() < 0.01) { // 1% chance per frame while moving in grass
+                            startEncounter();
+                        }
+                    }
+                }
+            } else {
+                playerFrame = 0; // Reset to standing frame when not moving
+            }
+        }
+
+        // Start a random encounter
+        function startEncounter() {
+            inEncounter = true;
+            encounterOverlay.style.display = 'flex';
+
+            // Randomly select a Pokémon name
+            const pokemonNames = ['Pikachu', 'Bulbasaur', 'Charmander', 'Squirtle', 'Eevee', 'Jigglypuff'];
+            const randomPokemon = pokemonNames[Math.floor(Math.random() * pokemonNames.length)];
+
+            encounterText.textContent = `A wild ${randomPokemon} appeared!`;
+        }
+
+        // End the encounter
+        continueBtn.addEventListener('click', () => {
+            inEncounter = false;
+            encounterOverlay.style.display = 'none';
+        });
+
+        // Draw the game
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#8ab060';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw map
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    if (map[y][x] === 1) {
+                        drawGrass(x * TILE_SIZE, y * TILE_SIZE);
+                    }
+                }
+            }
+
+            // Draw player
+            drawPlayer();
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!inEncounter) {
+                movePlayer();
+            }
+            draw();
+            frameCount++;
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+
+</html>
